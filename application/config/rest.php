@@ -108,9 +108,11 @@ $config['rest_realm'] = 'REST API';
 | 'digest'  More secured login
 | 'session' Check for a PHP session variable. See 'auth_source' to set the
 |           authorization key
+| 'user_token' authorization by api key and user table check
+            please enable rest_check_user_table in end of this file
 |
 */
-$config['rest_auth'] = false  ;
+$config['rest_auth'] = 'user_token';
 
 /*
 |--------------------------------------------------------------------------
@@ -179,7 +181,7 @@ $config['auth_library_function'] = '';
 | Acceptable values are; 'none', 'digest' and 'basic'.
 |
 */
-// $config['auth_override_class_method']['deals']['view'] = 'none';
+$config['auth_override_class_method']['users']['index'] = 'none';
 // $config['auth_override_class_method']['deals']['insert'] = 'digest';
 // $config['auth_override_class_method']['accounts']['user'] = 'basic';
 // $config['auth_override_class_method']['dashboard']['*'] = 'basic';
@@ -323,7 +325,7 @@ $config['rest_keys_table'] = 'keys';
 |   ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 |
 */
-$config['rest_enable_keys'] = TRUE;
+$config['rest_enable_keys'] = true;
 
 /*
 |--------------------------------------------------------------------------
@@ -545,7 +547,7 @@ $config['rest_language'] = 'english';
 | will access it through a browser
 |
 */
-$config['check_cors'] = false;
+$config['check_cors'] = TRUE;
 
 /*
 |--------------------------------------------------------------------------
@@ -624,3 +626,19 @@ $config['allowed_cors_origins'] = [];
 |
 */
 $config['forced_cors_headers'] = [];
+
+
+/*
+|--------------------------------------------------------------------------
+| USER TABLE CHECK
+|--------------------------------------------------------------------------
+| Set $config['rest_check_user_table'] to TRUE if you want to check to user table
+| If API KEY related to user_Id in database
+| please check if you table key has column user_id if not add it first
+|
+*/
+$config['rest_check_user_table'] = true;
+// Databse table user to related
+$config['rest_user_table'] = 'users';
+// Column name from table user to be check
+$config['rest_user_column'] = 'id';

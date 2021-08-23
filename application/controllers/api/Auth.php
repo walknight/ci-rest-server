@@ -74,38 +74,7 @@ class Auth extends RestController{
         $check = $this->user_model->getWhere(['register_key' => $kode_otp])->result();
         
         if($check){
-            $update_user = array(
-                'register_key' => '',
-                'api_key' => base_convert(bin2hex($this->security->get_random_bytes(64)), 16, 36),
-                'update_at' => date('Y-m-d H:i:s'),
-                'update_by' => 'API',
-                'is_active' => 1
-            );
             
-            //update user
-            $update = $this->user_model->update($check[0]->id, $update_user);
-
-            if($update > 0)
-            {
-                $result['error'] = false;
-                $result['message'] = 'Verification Success';
-                $result['data'] = array(
-                    'username' => $check[0]->username,
-                    'email' => $check[0]->email,
-                    'api_key' => $update_user['api_key'],
-                    'is_login' => 1
-                );
-
-                $this->response($result, parent::HTTP_OK);
-            }
-            else
-            {
-                $result['error'] = true;
-                $result['message'] = 'Something error with database';
-                $result['data'] = array();
-
-                $this->response($result, parent::HTTP_BAD_REQUEST);
-            }
 
         }
     }
@@ -168,6 +137,62 @@ class Auth extends RestController{
     }
 
     function logout_post(){
+        $username = $this->post('username');
+        $password = $this->post('password');
+
+        //check user by username
+        $user = $this->user_model->getWhere(['username' => $username])->result();
+
+        //if exist
+        if($user){
+            //check the password
+            if(password_verify($password, $user[0]->password)){
+                $update_user = array(
+                    'register_key' => '',
+                    'api_key' => '', //create API key for registered user
+                    'update_at' => date('Y-m-d H:i:s'),
+                    'update_by' => 'API',
+                    'is_active' => 1
+                );
+                
+                //update user
+                $update = $this->user_model->update($check[0]->id, $update_user);
+    
+                if($update > 0)
+                {
+                    $result['error'] = false;
+                    $result['message'] = 'Logout Success';
+                    $result['data'] = array();
+    
+                    $this->response($result, parent::HTTP_OK);
+                }
+                else
+                {
+                    $result['error'] = true;
+                    $result['message'] = 'Sorry, Something error please try again later+';
+                    $result['data'] = array();
+    
+                    $this->response($result, parent::HTTP_BAD_REQUEST);
+                }
+            }
+            else
+            {
+                //result error
+                $result['error'] = true;
+                $result['message'] = 'Your password did not match with our data.';
+
+                $this->response($result, parent::HTTP_BAD_REQUEST);
+            }
+
+        }
+        else
+        {
+            //result error
+            $result['error'] = true;
+            $result['message'] = 'The username not found in our data.';
+
+            $this->response($result, parent::HTTP_BAD_REQUEST);
+        }
 
     }
 

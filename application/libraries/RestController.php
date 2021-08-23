@@ -419,6 +419,9 @@ class RestController extends \CI_Controller
                 case 'session':
                     $this->_check_php_session();
                     break;
+                case 'user_token':
+                    $this->_check_user_token();
+                    break;
             }
         }
     }
@@ -1713,6 +1716,76 @@ class RestController extends \CI_Controller
                 $this->config->item('rest_message_field_name') => $this->lang->line('text_rest_unauthorized'),
             ], self::HTTP_UNAUTHORIZED);
         }
+    }
+
+    /* Check token based user token key and available user */
+    protected function _check_user_token()
+    {
+        // Get the api key name variable set in the rest config file
+        $api_key_variable = $this->config->item('rest_key_name');
+
+        // Work out the name of the SERVER entry based on config
+        $key_name = 'HTTP_'.strtoupper(str_replace('-', '_', $api_key_variable));
+
+        $this->rest->key = null;
+        $this->rest->level = null;
+        $this->rest->user_id = null;
+        $this->rest->ignore_limits = false;
+
+        // Find the key from server or arguments
+        if (($key = isset($this->_args[$api_key_variable]) ? $this->_args[$api_key_variable] : $this->input->server($key_name))) {
+            
+            if (!($row = $this->rest->db->where($this->config->item('rest_key_column'), $key)->get($this->config->item('rest_keys_table'))->row())) {
+                // Display an error response
+                $this->response([
+                    $this->config->item('rest_status_field_name')  => false,
+                    $this->config->item('rest_message_field_name') => $this->lang->line('text_rest_invalid_credentials'),
+                ], self::HTTP_UNAUTHORIZED);
+            }
+
+            $this->rest->key = $row->{$this->config->item('rest_key_column')};
+
+            isset($row->user_id) && $this->rest->user_id = $row->user_id;
+            isset($row->level) && $this->rest->level = $row->level;
+            isset($row->ignore_limits) && $this->rest->ignore_limits = $row->ignore_limits;
+
+            /*
+            * If "rest_check_user_table" is enabled, check in table user if user id exist
+            */
+            if($this->config->item('rest_check_user_table'))
+            {
+                if($this->rest->user_id != null)
+                {
+                    //check related user by user_id
+                    $user = $this->rest->db->where($this->config->item('rest_user_column'), $this->rest->user_id)->get($this->config->item('rest_user_table'))->row();
+                    
+                    if(!$user)
+                    {
+                            // Display an error response
+                            $this->response([
+                                $this->config->item('rest_status_field_name')  => false,
+                                $this->config->item('rest_message_field_name') => $this->lang->line('text_rest_invalid_credentials'),
+                            ], self::HTTP_UNAUTHORIZED);
+                    }
+
+                } else {
+                    // Display an error response
+                    $this->response([
+                        $this->config->item('rest_status_field_name')  => false,
+                        $this->config->item('rest_message_field_name') => $this->lang->line('text_rest_invalid_credentials'),
+                    ], self::HTTP_UNAUTHORIZED);
+                }
+                //check if user exist in database
+            }
+            
+        } else {
+            // Display an error response
+            $this->response([
+                $this->config->item('rest_status_field_name')  => false,
+                $this->config->item('rest_message_field_name') => $this->lang->line('text_rest_invalid_credentials'),
+            ], self::HTTP_UNAUTHORIZED);
+        }
+
     }
 
     /**

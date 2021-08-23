@@ -1,6 +1,6 @@
 RewriteEngine On
 
-RewriteBase /~ifthenuk/rest_server/
+RewriteBase /ci-rest-server/
 
 RewriteCond %{REQUEST_FILENAME} !-f
 

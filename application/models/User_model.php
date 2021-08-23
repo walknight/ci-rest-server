@@ -78,7 +78,12 @@ if (!defined('BASEPATH')) exit('No direct script access allowed');
 		}
 		$result = $this->db->get_where($this->_table, $params);
 
-		return $result;
+		if($result->num_rows() > 0)
+		{
+			return $result;
+		} else {
+			return FALSE;
+		}
 	}
 
 
