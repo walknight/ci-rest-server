@@ -14,10 +14,15 @@ Thank's :)
 Changelog and New Features
 **************************
 
+
+v1.2
+- Add OTP in rest config so you can use with or without OTP 
+
 v1.0
 - Init Codeigniter Framework
 - Add library Rest Server
 - Add Auth Register and Login
+
 
 *******************
 Server Requirements
