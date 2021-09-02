@@ -13,7 +13,7 @@ class Auth extends RestController{
         parent::__construct();
         //load form validation
         $this->load->library('form_validation');
-        $this->load->model('user_model');
+        $this->load->model(['user_model','key_model']);
         $this->load->helper(['form','string']);
     }
 
@@ -48,19 +48,42 @@ class Auth extends RestController{
                 'username' => $username,
                 'password' => $password_hash,
                 'email' => $email,
-                'register_key' => random_string('alnum',6), //create OTP register key for validation user
-                'user_type' => 2,
+                'group' => 2, // define the group of user
                 'create_by' => 'API',
             );
+            
+            if($this->config->item('rest_enable_otp'))
+            {
+                $data_user['otp'] = random_string('alnum',6); //create OTP register key for validation user
+            }
 
-            $this->user_model->insert($data_user);
+            $user_id = $this->user_model->insert($data_user);
 
             //send OTP to email user registered
 
             //show result
             $result['error'] = false;
             $result['message'] = 'Registration success';
-            $result['data'] = $data_user; //array('reg_success' => 1,'otp' => true)
+            if($this->config->item('rest_enable_otp'))
+            {
+                //send to mobile or other app to go to OTP page 
+                $result['data'] = array('reg_success' => 1,'otp' => true);
+
+            } else {
+                //if not create API KEY TOKEN and return the data
+                //generetae user token
+                $key = $this->key_model->generate_key();
+                $data_key = [
+                    'level' => 1, 
+                    'ignore_limits' => 1, 
+                    'user_id' => $user_id,
+                    'is_active' => 1
+                ];
+
+                $this->key_model->insert_key($key, $data_key );
+
+                $result['data'] = $data_user; 
+            }
 
             $this->response($result, parent::HTTP_OK);
         }
@@ -71,10 +94,57 @@ class Auth extends RestController{
         $kode_otp = $this->post('otp');
 
         //check otp
-        $check = $this->user_model->getWhere(['register_key' => $kode_otp])->result();
+        $check = $this->user_model->getWhere(['otp' => $kode_otp])->row();
         
         if($check){
-            
+            $update_user = array(
+                'otp' => '',
+                'update_at' => date('Y-m-d H:i:s'),
+                'update_by' => 'API',
+                'is_active' => 1
+            );
+            //update user
+            $update = $this->user_model->update($check->id, $update_user);
+
+            if($update > 0)
+            {
+                //generetae user token
+                $key = $this->key_model->generate_key();
+                $data_key = [
+                    'level' => 1, 
+                    'ignore_limits' => 1, 
+                    'user_id' => $check->id,
+                    'ip_addresses' => $this->input->ip_address()
+                ];
+
+                $this->key_model->insert_key($key, $data_key );
+
+                //set expired time login user
+                //set expired next day from today
+                //$time = time();
+                //$expired = mktime(0,0,0,date("n", $time),date("j",$time)+ 1 ,date("Y", $time));
+                
+                $result['error'] = false;
+                $result['message'] = 'Verification Success';
+                $result['data'] = array(
+                    'username' => $check->username,
+                    'email' => $check->email,
+                    'api_key' => $key,
+                    'id_user' => $check->id,
+                    'is_login' => 1, //set login status to tell app to go to dashboard or user member page
+                    //'expired' => $expired
+                );
+
+                $this->response($result, parent::HTTP_OK);
+            }
+            else
+            {
+                $result['error'] = true;
+                $result['message'] = 'Something error with database';
+                $result['data'] = array();
+
+                $this->response($result, parent::HTTP_BAD_REQUEST);
+            }
 
         }
     }
@@ -96,20 +166,25 @@ class Auth extends RestController{
         else
         {
             //check user by username
-            $user = $this->user_model->getWhere(['username' => $username])->result();
+            $user = $this->user_model->getWhere(['username' => $username])->row();
 
             //if exist
             if($user){
                 //check the password
-                if(password_verify($password, $user[0]->password)){
+                if(password_verify($password, $user->password)){
+                    //get old api key by user id
+                    $key = $this->key_model->get_key_by_user_id($user->id);
+                    //regenerate new key
+                    $new_key = $this->key_model->regenerate_key($key->key, $user->id);
+
                     //valid return user data
                     $result['error'] = false;
                     $result['message'] = 'Login Success';
                     $result['data'] = array(
-                        'username' => $user[0]->username,
-                        'email' => $user[0]->email,
-                        'api_key' => $user[0]->api_key,
-                        'id_user' => $user[0]->id,
+                        'username' => $user->username,
+                        'email' => $user->email,
+                        'api_key' => $new_key,
+                        'id_user' => $user->id,
                         'is_login' => 1,
                     );
 
@@ -138,52 +213,22 @@ class Auth extends RestController{
 
     function logout_post(){
         $username = $this->post('username');
-        $password = $this->post('password');
 
         //check user by username
-        $user = $this->user_model->getWhere(['username' => $username])->result();
+        $user = $this->user_model->getWhere(['username' => $username])->row();
 
         //if exist
         if($user){
-            //check the password
-            if(password_verify($password, $user[0]->password)){
-                $update_user = array(
-                    'register_key' => '',
-                    'api_key' => '', //create API key for registered user
-                    'update_at' => date('Y-m-d H:i:s'),
-                    'update_by' => 'API',
-                    'is_active' => 1
-                );
-                
-                //update user
-                $update = $this->user_model->update($check[0]->id, $update_user);
-    
-                if($update > 0)
-                {
-                    $result['error'] = false;
-                    $result['message'] = 'Logout Success';
-                    $result['data'] = array();
-    
-                    $this->response($result, parent::HTTP_OK);
-                }
-                else
-                {
-                    $result['error'] = true;
-                    $result['message'] = 'Sorry, Something error please try again later+';
-                    $result['data'] = array();
-    
-                    $this->response($result, parent::HTTP_BAD_REQUEST);
-                }
-            }
-            else
-            {
-                //result error
-                $result['error'] = true;
-                $result['message'] = 'Your password did not match with our data.';
+            //get old api key by user id
+            $key = $this->key_model->get_key_by_user_id($user->id);
+            //suspend key
+            $this->key_model->suspend_key($key->key);
 
-                $this->response($result, parent::HTTP_BAD_REQUEST);
-            }
-
+            $result['error'] = false;
+            $result['message'] = 'Logout Success';
+    
+            $this->response($result, parent::HTTP_OK);
+           
         }
         else
         {

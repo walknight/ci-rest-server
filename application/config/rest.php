@@ -182,7 +182,9 @@ $config['auth_library_function'] = '';
 |
 */
 $config['auth_override_class_method']['users']['index'] = 'none';
-// $config['auth_override_class_method']['deals']['insert'] = 'digest';
+$config['auth_override_class_method']['auth']['register'] = 'none';
+$config['auth_override_class_method']['auth']['verify_otp'] = 'none';
+$config['auth_override_class_method']['auth']['login'] = 'none';
 // $config['auth_override_class_method']['accounts']['user'] = 'basic';
 // $config['auth_override_class_method']['dashboard']['*'] = 'basic';
 
@@ -642,3 +644,5 @@ $config['rest_check_user_table'] = true;
 $config['rest_user_table'] = 'users';
 // Column name from table user to be check
 $config['rest_user_column'] = 'id';
+// use OTP ?
+$config['rest_enable_otp'] = true;
